@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>撮影タイマー</title>
+    <style>
+        body {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.container {
+    background-color: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    border-radius: 8px;
+    
+}
+
+h1 {
+    color: #444;
+    font-size: 24px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+}
+
+.timer-display {
+    font-size: 72px;
+    color: #e74c3c;
+    margin-top: 30px;
+    margin-bottom: 30px;
+}
+
+button {
+    background-color: #e74c3c;
+    color: #fff;
+    border: none;
+    padding: 15px 30px;
+    font-size: 18px;
+    border-radius: 5px;
+    margin: 10px;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #c0392b;
+}
+
+button:active {
+    background-color: #a93226;
+}
+
+.results p {
+    font-size: 18px;
+    margin-top: 20px;
+}
+#startStopBtn.start {
+    background-color: #2ecc71;
+}
+
+#startStopBtn.start:hover {
+    background-color: #27ae60;
+}
+
+#startStopBtn.start:active {
+    background-color: #229954;
+}
+body {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#resetBtn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: #95a5a6;
+    font-size: 12px;
+    padding: 5px 10px;
+}
+
+#resetBtn:hover {
+    background-color: #7f8c8d;
+}
+
+#resetBtn:active {
+    background-color: #707b7c;
+}
+
+#progressContainer {
+    width: 100%;
+    background-color: #ddd;
+    border-radius: 20px; /* 丸みを帯びた角 */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* シャドウを追加 */
+    overflow: hidden; /* ゲージの丸みに合わせて内部要素をクリップ */
+}
+
+
+
+/* 通常の進捗バーのスタイル */
+#progressBar {
+    height: 30px;
+    width: 0%;
+    background-color: #4CAF50;
+    text-align: center;
+    line-height: 30px;
+    color: white;
+    border-radius: 20px; /* 丸みを帯びた角 */
+    transition: width 1s ease-in-out; /* 幅の変化にアニメーションを適用 */
+    background-image: linear-gradient(to right, #4caf50, #81c784); /* グラデーション背景 */
+
+    /* ...他のスタイル... */
+    transition: width 1s ease-in-out, background-color 0.5s linear; /* 背景色変更のアニメーションを追加 */
+}
+
+/* 10%ごとの演出用のアニメーション */
+@keyframes milestone-animation {
+    0% { background-color: #4caf50; }
+    11% { background-color: #1298ce; }
+    15% { background-color: #ba13db; }
+    25% { background-color: #e9092e; }
+    50% { background-color: #ffc107; }
+    100% { background-color: #4caf50; }
+}
+
+/* マイルストーンに達したときに適用されるクラス */
+.milestone {
+    animation: milestone-animation 6s; /* アニメーションを適用 */
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.incentive-display {
+    animation: pulse 1s ease-in-out;
+    background-color: gold;
+    color: black;
+    font-size: 24px;
+    font-weight: bold;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    border: 2px solid black;
+    margin-top: 10px;
+}
+
+#incentiveResetBtn {
+    background-color: #3498db;
+    color: #fff;
+    /* ... other button styles ... */
+}
+
+
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>撮影タイマー</h1>
+
+    <div id="progressContainer">
+        <div id="progressBar"></div>
+    </div>
+    
+    
+    <div class="timer-display">
+        <span id="minutes">00</span>:<span id="seconds">00</span>
+    </div>
+    
+    <button id="startStopBtn" onclick="startOrStopTimer()">スタート</button>
+    
+    
+    <div class="results">
+        <div class="incentive-display">
+            <p>現在のインセンティブ: <span id="currentIncentive">-¥0</span></p>
+        </div>
+        <button id="incentiveResetBtn" onclick="resetIncentive()">インセンティブリセット</button>
+
+        
+        <p>残り商品数: <span id="remainingItems">100</span></p>
+        <p>最短の残り作業時間: <span id="minTime">--:--</span></p>
+        <p>最長の残り作業時間: <span id="maxTime">--:--</span></p>
+        <p>最短の終了予想時間: <span id="minEndTime">--:--</span></p>
+        <p>最長の終了予想時間: <span id="maxEndTime">--:--</span></p>
+    </div>
+    <button id="resetBtn" onclick="resetData()">データリセット</button>
+    <button id="downloadBtn" onclick="downloadData()">データダウンロード</button>
+
+
+</div>
+
+<script>
+let timerInterval;
+let isRunning = false;
+let totalSeconds = 0;
+let remainingItems = 100;
+// グローバル変数としてインセンティブの初期値を設定
+let currentIncentive = -30000;
+const incrementPerItem = 166.666667;
+
+
+
+
+function updateRemainingTime() {
+    // 最初に商品数を減少させる
+    remainingItems--;
+
+    const [minTimeLeft, maxTimeLeft, minEndTime, maxEndTime] = calculateRemainingTime(remainingItems);
+    document.getElementById('minTime').textContent = formatTime(minTimeLeft);
+    document.getElementById('maxTime').textContent = formatTime(maxTimeLeft);
+    document.getElementById('minEndTime').textContent = minEndTime;
+    document.getElementById('maxEndTime').textContent = maxEndTime;
+    document.getElementById('remainingItems').textContent = remainingItems;
+    // 進捗バーの更新
+    updateProgress();
+
+    // 商品ごとにインセンティブを更新
+    currentIncentive += incrementPerItem; // インセンティブの計算
+　　updateIncentiveDisplay(currentIncentive);
+    document.getElementById('currentIncentive').textContent = `¥${currentIncentive.toFixed(2)}`;
+}
+
+
+function calculateRemainingTime(totalItemsLeft) {
+    const remainingShootingTime = 2.8 * totalItemsLeft;
+    const bufferingCountLeft = Math.ceil(totalItemsLeft / 15);
+    const remainingBufferingMinTime = 13 * bufferingCountLeft;
+    const remainingBufferingMaxTime = 15 * bufferingCountLeft;
+    const totalMinTimeLeft = remainingShootingTime + remainingBufferingMinTime;
+    const totalMaxTimeLeft = remainingShootingTime + remainingBufferingMaxTime;
+    const currentTime = new Date();
+    const minEndTime = new Date(currentTime.getTime() + totalMinTimeLeft * 60000);
+    const maxEndTime = new Date(currentTime.getTime() + totalMaxTimeLeft * 60000);
+    return [
+        totalMinTimeLeft,
+        totalMaxTimeLeft,
+        minEndTime.getHours().toString().padStart(2, '0') + ':' + minEndTime.getMinutes().toString().padStart(2, '0'),
+        maxEndTime.getHours().toString().padStart(2, '0') + ':' + maxEndTime.getMinutes().toString().padStart(2, '0')
+    ];
+}
+
+function formatTime(minutes) {
+    const hrs = Math.floor(minutes / 60);
+    const mins = Math.floor(minutes % 60);
+    return `${hrs}時間${mins}分`;
+}
+
+// Load saved data from LocalStorage when the page is loaded
+function loadDataFromLocalStorage() {
+    const savedRemainingItems = localStorage.getItem('remainingItems');
+    const savedTotalSeconds = localStorage.getItem('totalSeconds');
+
+    if (savedRemainingItems !== null) {
+        remainingItems = parseInt(savedRemainingItems, 10);
+        document.getElementById('remainingItems').textContent = remainingItems;
+    }
+    
+    if (savedTotalSeconds !== null) {
+        totalSeconds = parseInt(savedTotalSeconds, 10);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        document.getElementById('minutes').textContent = String(minutes).padStart(2, '0');
+        document.getElementById('seconds').textContent = String(seconds).padStart(2, '0');
+    }
+
+    updateRemainingTime();
+}
+
+// Save data to LocalStorage
+function saveDataToLocalStorage() {
+    localStorage.setItem('remainingItems', remainingItems);
+    localStorage.setItem('totalSeconds', totalSeconds);
+}
+
+// Clear saved data from LocalStorage
+function clearDataFromLocalStorage() {
+    localStorage.removeItem('remainingItems');
+    localStorage.removeItem('totalSeconds');
+}
+
+// Update the startOrStopTimer function to save data to LocalStorage
+
+
+// Call the loadDataFromLocalStorage function when the page is loaded
+window.onload = loadDataFromLocalStorage;
+
+function resetData() {
+    clearDataFromLocalStorage();
+    remainingItems = 200;
+    totalSeconds = 0;
+    document.getElementById('remainingItems').textContent = remainingItems;
+    document.getElementById('minutes').textContent = "00";
+    document.getElementById('seconds').textContent = "00";
+    document.getElementById('minTime').textContent = "--:--";
+    document.getElementById('maxTime').textContent = "--:--";
+    document.getElementById('minEndTime').textContent = "--:--";
+    document.getElementById('maxEndTime').textContent = "--:--";
+    if (isRunning) {
+        clearInterval(timerInterval);
+        document.getElementById('startStopBtn').textContent = 'スタート';
+        isRunning = false;
+    }
+}
+let capturedTimes = [];
+
+function startOrStopTimer() {
+    const btn = document.getElementById('startStopBtn');
+    if (isRunning) {
+        clearInterval(timerInterval);
+        btn.textContent = 'スタート';
+        btn.classList.remove('start');
+        capturedTimes.push(totalSeconds);
+        updateRemainingTime();
+        saveDataToLocalStorage();
+        totalSeconds = 0;
+    } else {
+        timerInterval = setInterval(function() {
+            totalSeconds++;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            document.getElementById('minutes').textContent = String(minutes).padStart(2, '0');
+            document.getElementById('seconds').textContent = String(seconds).padStart(2, '0');
+        }, 1000);
+        btn.textContent = 'ストップ';
+        btn.classList.add('start');
+    }
+    isRunning = !isRunning;
+}
+
+function downloadData() {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Item,Time(minutes)\n";
+    capturedTimes.forEach(function(item, index) {
+        const minutes = item / 60;
+        csvContent += (index + 1) + "," + minutes.toFixed(2) + "\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "capture_times.csv");
+    document.body.appendChild(link); 
+    link.click(); 
+    document.body.removeChild(link);
+}
+
+function updateProgress() {
+    const totalItems = 100; // 目標の商品数
+    const progress = ((totalItems - remainingItems) / totalItems) * 100;
+    const progressBar = document.getElementById('progressBar');
+
+    // プログレスバーの幅を更新
+    progressBar.style.width = progress + '%';
+    progressBar.textContent = `${progress.toFixed(0)}%`;
+
+    // 以前のマイルストーン演出をクリア
+    progressBar.classList.remove('milestone');
+
+    // 10% のマイルストーンを検出 (10%以上であり、直前の10%の倍数でないときに演出)
+    if (progress >= 10 && progress % 10 < 1) {
+        progressBar.classList.add('milestone');
+    }
+
+
+
+    // ゲージが100%に達したときのアニメーションクラスを追加
+    if (progress >= 100) {
+        progressBar.classList.add('completed');
+    } else {
+        progressBar.classList.remove('completed');
+    }
+}
+
+function resetIncentive() {
+    currentIncentive = -30000;
+    document.getElementById('currentIncentive').textContent = `¥${currentIncentive.toFixed(2)}`;
+}
+
+function animateValue(obj, start, end, duration) {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        obj.textContent = `¥${(Math.floor(progress * (end - start) + start)).toFixed(2)}`;
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+function updateIncentiveDisplay(newIncentive) {
+    const incentiveDisplay = document.getElementById('currentIncentive');
+    const currentIncentive = parseFloat(incentiveDisplay.textContent.replace('¥', ''));
+    animateValue(incentiveDisplay, currentIncentive, newIncentive, 1000); // 1秒間のアニメーション
+}
+
+
+
+
+</script>
+
+</body>
+</html>
